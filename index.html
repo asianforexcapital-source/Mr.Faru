@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="en" class="dark scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Farhan — Systematic Algo Trading Bots</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            serif: ['"Instrument Serif"', 'Georgia', 'serif'],
+            sans: ['"Inter"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+        }
+      }
+    }
+  </script>
+
+  <style>
+    :root {
+      --mouse-x: 50vw;
+      --mouse-y: 50vh;
+    }
+
+    body {
+      background-color: #000000;
+      color: #ffffff;
+      font-family: 'Inter', sans-serif;
+      overflow-x: hidden;
+      margin: 0;
+      padding: 0;
+    }
+
+    /* Background Base Dark Text Layer */
+    .bg-text-container {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
+      z-index: 1;
+      opacity: 0.22;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      user-select: none;
+    }
+
+    /* Focused Cursor-Illuminated White Highlight Stream (40% Opacity) */
+    .bg-text-highlight {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      user-select: none;
+      color: rgba(255, 255, 255, 0.40);
+      font-weight: 500;
+      text-shadow: 0 0 6px rgba(255, 255, 255, 0.2);
+      mask-image: radial-gradient(260px circle at var(--mouse-x) var(--mouse-y), black 30%, rgba(0, 0, 0, 0.6) 60%, transparent 85%);
+      -webkit-mask-image: radial-gradient(260px circle at var(--mouse-x) var(--mouse-y), black 30%, rgba(0, 0, 0, 0.6) 60%, transparent 85%);
+    }
+
+    .bg-text-row {
+      display: flex;
+      white-space: nowrap;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      color: #3f3f46;
+      line-height: 1;
+      animation: marquee 60s linear infinite;
+    }
+
+    .bg-text-row-highlight {
+      display: flex;
+      white-space: nowrap;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      color: rgba(255, 255, 255, 0.40);
+      line-height: 1;
+      animation: marquee 60s linear infinite;
+    }
+
+    .bg-text-row:nth-child(even), .bg-text-row-highlight:nth-child(even) {
+      animation-direction: reverse;
+      animation-duration: 75s;
+    }
+
+    @keyframes marquee {
+      0% { transform: translateX(0%); }
+      100% { transform: translateX(-50%); }
+    }
+
+    /* Focused Soft White Cursor Spotlight Pool (8% White Glow Brightness) */
+    .cursor-spotlight {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 3;
+      background: radial-gradient(
+        260px circle at var(--mouse-x) var(--mouse-y),
+        rgba(255, 255, 255, 0.08) 0%,
+        rgba(255, 255, 255, 0.03) 45%,
+        rgba(255, 255, 255, 0.005) 75%,
+        transparent 100%
+      );
+      mix-blend-mode: screen;
+    }
+
+    /* Card glow and border highlights */
+    .glow-card {
+      position: relative;
+      background: rgba(10, 10, 12, 0.88);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+    }
+
+    .glow-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: radial-gradient(
+        400px circle at var(--card-x, -500px) var(--card-y, -500px),
+        rgba(255, 255, 255, 0.08),
+        transparent 80%
+      );
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      z-index: 2;
+    }
+
+    .glow-card:hover::before {
+      opacity: 1;
+    }
+
+    /* Partner Logos Marquee */
+    @keyframes partnerMarquee {
+      0% { transform: translateX(0%); }
+      100% { transform: translateX(-50%); }
+    }
+    .partner-track {
+      display: flex;
+      width: max-content;
+      animation: partnerMarquee 30s linear infinite;
+    }
+    .partner-track:hover {
+      animation-play-state: paused;
+    }
+  </style>
+</head>
+<body class="min-h-screen relative antialiased selection:bg-white selection:text-black">
+
+  <!-- Dynamic Cursor Spotlight Overlay -->
+  <div class="cursor-spotlight"></div>
+
+  <!-- Background Dense Monospace Log Text (Base Layer) -->
+  <div class="bg-text-container" id="bgTextStream">
+    <!-- Populated by JS -->
+  </div>
+
+  <!-- Background Cursor-Illuminated White Highlight Stream (Reveals in a small focused area) -->
+  <div class="bg-text-highlight" id="bgTextStreamHighlight">
+    <!-- Populated by JS -->
+  </div>
+
+  <!-- ==================== NAVBAR ==================== -->
+  <header class="relative z-30 max-w-[1380px] mx-auto px-6 pt-5">
+    <div class="flex items-center justify-between h-14">
+      
+      <!-- Left: Logo & Nav Links -->
+      <div class="flex items-center gap-10">
+        <!-- Logo -->
+        <a href="#" class="flex items-center gap-2.5 group">
+          <div class="w-7 h-7 rounded-full bg-white flex items-center justify-center text-black font-extrabold text-sm shadow-sm group-hover:scale-105 transition-transform">
+            <svg class="w-4 h-4 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          </div>
+          <span class="text-lg font-bold tracking-tight text-white">Farhan</span>
+        </a>
+
+        <!-- Links -->
+        <nav class="hidden md:flex items-center gap-8 text-[13px] font-medium text-neutral-300">
+          <a href="#trading-desk" class="text-white bg-white/10 hover:bg-white/20 px-3 py-1 rounded-full text-xs font-semibold transition-colors flex items-center gap-1.5">
+            <span>Trading Desk</span>
+            <span>↓</span>
+          </a>
+          <a href="#" class="hover:text-white transition-colors">Product</a>
+          <a href="#" class="hover:text-white transition-colors">Resources</a>
+          <a href="#" class="hover:text-white transition-colors">Pricing</a>
+        </nav>
+      </div>
+
+      <!-- Right: Actions & Mr. Farhan Badge -->
+      <div class="flex items-center gap-3">
+        
+        <!-- Language Selector -->
+        <button class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-neutral-300 hover:text-white bg-neutral-900/60 border border-neutral-800 hover:border-neutral-700 transition-colors">
+          <svg class="w-3.5 h-3.5 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
+          <span>English</span>
+        </button>
+
+        <!-- Social Icons (X & Community) -->
+        <a href="#" class="w-8 h-8 rounded-full flex items-center justify-center text-neutral-400 hover:text-white hover:bg-neutral-900 border border-neutral-800 transition-colors">
+          <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+        </a>
+        <a href="#" class="w-8 h-8 rounded-full flex items-center justify-center text-neutral-400 hover:text-white hover:bg-neutral-900 border border-neutral-800 transition-colors">
+          <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.894.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
+        </a>
+
+        <!-- WhatsApp Header Button -->
+        <a href="https://wa.me/918483025732?text=I%20wanted%20to%20know%20more%20about%20Paradox%20EA" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#25D366] hover:bg-[#20ba59] text-black font-bold text-xs transition-colors shadow-sm">
+          <span>WhatsApp</span>
+        </a>
+
+        <!-- Mr. Farhan User Badge (From your screenshot!) -->
+        <div class="flex items-center gap-2 pl-2 border-l border-neutral-800">
+          <img src="assets/farhan.jpg" alt="Mr. Farhan" class="w-7 h-7 rounded-full object-cover object-top border border-neutral-700">
+          <span class="text-xs font-semibold text-white whitespace-nowrap">Mr. Farhan</span>
+        </div>
+
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ==================== HERO SECTION ==================== -->
+  <main class="relative z-20 pt-14 pb-20 max-w-[1380px] mx-auto px-6 text-center">
+    
+    <!-- Round Cropped Portrait Avatar (Centered Above Headline - 60% Larger) -->
+    <div class="mb-10 flex justify-center">
+      <div class="relative group">
+        <!-- Ambient subtle glow behind avatar -->
+        <div class="absolute -inset-3 bg-gradient-to-tr from-emerald-500/35 via-white/25 to-indigo-500/35 rounded-full blur-xl opacity-80 group-hover:opacity-100 transition-opacity"></div>
+        
+        <!-- Round avatar frame (60% larger: w-52 h-52 / sm:w-60 sm:h-60) -->
+        <div class="relative w-52 h-52 sm:w-60 sm:h-60 rounded-full overflow-hidden border-4 border-white/50 shadow-2xl bg-neutral-900">
+          <img 
+            src="assets/farhan.jpg" 
+            alt="Farhan" 
+            class="w-full h-full object-cover object-top scale-105 group-hover:scale-110 transition-transform duration-300"
+          />
+        </div>
+
+        <!-- Live active status dot -->
+        <span class="absolute bottom-2.5 right-2.5 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-emerald-500 border-2 border-black flex items-center justify-center shadow-lg" title="Active">
+          <span class="w-3 h-3 rounded-full bg-white animate-pulse"></span>
+        </span>
+      </div>
+    </div>
+
+    <!-- Headline (Exact Serif Style from Screenshot) -->
+    <h1 class="font-serif text-5xl sm:text-7xl lg:text-[88px] font-normal tracking-tight text-white leading-[1.05] max-w-5xl mx-auto">
+      Systematic Algo Trading Bots
+    </h1>
+
+    <!-- Subtitle -->
+    <p class="mt-6 text-base sm:text-lg text-neutral-300 font-normal max-w-2xl mx-auto leading-relaxed">
+      The search is over. <strong class="text-white font-semibold">Paradox Algo</strong> is what you are looking for.
+    </p>
+
+    <!-- CTAs: Just WhatsApp Button -->
+    <div class="mt-8 flex items-center justify-center">
+      <a href="https://wa.me/918483025732?text=I%20wanted%20to%20know%20more%20about%20Paradox%20EA" target="_blank" rel="noopener noreferrer" class="group flex items-center gap-3 px-8 py-3.5 rounded-full bg-[#25D366] hover:bg-[#20ba59] text-black font-bold text-base transition-all shadow-xl shadow-[#25D366]/25 hover:shadow-[#25D366]/40 hover:scale-105">
+        <svg class="w-6 h-6 fill-current text-black" viewBox="0 0 24 24">
+          <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
+        </svg>
+        <span>Connect on WhatsApp</span>
+      </a>
+    </div>
+
+    <!-- ==================== HERO VISUAL MOCKUP WINDOWS ==================== -->
+    <div class="mt-14 relative max-w-[1100px] mx-auto text-left">
+      
+      <!-- Window 1: Main Center Desktop App Window -->
+      <div class="glow-card rounded-2xl overflow-hidden z-10 relative">
+        
+        <!-- Window Titlebar -->
+        <div class="h-10 px-4 bg-neutral-950/90 border-b border-neutral-800/80 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full bg-[#ff5f56]"></span>
+            <span class="w-3 h-3 rounded-full bg-[#ffbd2e]"></span>
+            <span class="w-3 h-3 rounded-full bg-[#27c93f]"></span>
+          </div>
+          <div class="px-6 py-1 rounded-md bg-neutral-900 border border-neutral-800 text-[11px] font-mono text-neutral-400">
+            farhan.ai
+          </div>
+          <div class="w-12"></div>
+        </div>
+
+        <!-- Window Body -->
+        <div class="p-6 bg-[#0a0a0c]">
+          
+          <!-- Natural Language Strategy Prompt -->
+          <div class="flex justify-end mb-6">
+            <div class="px-5 py-2.5 rounded-2xl bg-neutral-900 border border-neutral-800 text-sm text-neutral-200 shadow-inner">
+              Run Paradox EA on XAU/USD: Target 60%–70% monthly return with max 20% DD limit.
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Left Execution Stepper -->
+            <div class="lg:col-span-4 space-y-3 font-mono text-xs">
+              <div class="text-neutral-300 font-semibold flex items-center gap-1.5">
+                <span class="text-emerald-400">✓</span> Work complete in 3s
+              </div>
+              <div class="pl-4 space-y-2 text-neutral-400 border-l border-neutral-800">
+                <div class="flex items-center justify-between">
+                  <span>✓ Ingested XAU/USD Tick Data</span>
+                  <span class="text-[10px] text-neutral-500">0.8 pip spread</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span>✓ Deploy Paradox EA Logic</span>
+                  <span class="text-[10px] text-neutral-500">Gold Scalper</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span>✓ 20% Drawdown Guardrail</span>
+                  <span class="text-[10px] text-emerald-400">Active</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right Backtest & Strategy Result Card -->
+            <div class="lg:col-span-8 bg-neutral-950/80 rounded-xl p-5 border border-neutral-800/80 space-y-5">
+              
+              <!-- Strategy Header -->
+              <div class="flex items-center justify-between">
+                <div>
+                  <div class="flex items-center gap-2">
+                    <h3 class="text-base font-bold text-white">Paradox EA (XAU/USD Gold)</h3>
+                    <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">60%–70% / Mo</span>
+                  </div>
+                  <p class="text-xs text-neutral-400 mt-1">
+                    <span class="font-mono text-neutral-500">Parameters:</span> XAU/USD institutional liquidity sweeps | Max 20% Hard Drawdown Cap
+                  </p>
+                </div>
+              </div>
+
+              <!-- Backtest Result Tabs -->
+              <div class="pt-3 border-t border-neutral-800/80">
+                <div class="flex items-center justify-between text-xs font-mono text-neutral-400 pb-2">
+                  <span class="font-bold text-white">Live Performance Audit</span>
+                  <div class="flex items-center gap-3 text-[11px]">
+                    <span class="text-emerald-400">● Paradox EA</span>
+                    <span class="text-neutral-500">-- XAU/USD Spot</span>
+                    <span class="text-amber-400">Account: $20,000</span>
+                  </div>
+                </div>
+
+                <!-- Metrics Grid -->
+                <div class="grid grid-cols-2 gap-4 pt-3">
+                  
+                  <!-- Performance Column -->
+                  <div class="space-y-2 bg-neutral-900/50 p-3 rounded-lg border border-neutral-800/50">
+                    <span class="text-[11px] font-mono font-semibold text-neutral-300">Live Returns</span>
+                    <div class="flex justify-between text-xs">
+                      <span class="text-neutral-400">Monthly Returns</span>
+                      <span class="text-emerald-400 font-bold font-mono">60% – 70%</span>
+                    </div>
+                    <div class="flex justify-between text-xs">
+                      <span class="text-neutral-400">Last Week Profit</span>
+                      <span class="text-emerald-400 font-bold font-mono">+$6,000.00</span>
+                    </div>
+                    <div class="flex justify-between text-xs">
+                      <span class="text-neutral-400">Current Balance</span>
+                      <span class="text-white font-mono font-bold">$20,000.00</span>
+                    </div>
+                    <div class="flex justify-between text-xs">
+                      <span class="text-neutral-400">Weekly ROI</span>
+                      <span class="text-cyan-400 font-mono">+30.0%</span>
+                    </div>
+                  </div>
+
+                  <!-- Trades Analysis Column -->
+                  <div class="space-y-2 bg-neutral-900/50 p-3 rounded-lg border border-neutral-800/50">
+                    <div class="flex justify-between text-[11px] font-mono font-semibold text-neutral-300">
+                      <span>Trades Analysis</span>
+                      <span class="text-emerald-400">Win Rate: +76.1%</span>
+                    </div>
+                    <div class="text-[11px] font-mono text-neutral-400">
+                      142 Trades: <span class="text-emerald-400 font-bold">108W</span> • <span class="text-rose-400 font-bold">34L</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 text-xs pt-1">
+                      <div>
+                        <span class="text-[10px] text-neutral-500 block">Asset Traded</span>
+                        <span class="text-amber-400 font-mono font-semibold">XAU/USD</span>
+                      </div>
+                      <div>
+                        <span class="text-[10px] text-neutral-500 block">Max Drawdown</span>
+                        <span class="text-emerald-400 font-mono font-semibold">18.6% (&lt;20%)</span>
+                      </div>
+                      <div>
+                        <span class="text-[10px] text-neutral-500 block">Profit Factor</span>
+                        <span class="text-emerald-400 font-mono font-semibold">2.84</span>
+                      </div>
+                      <div>
+                        <span class="text-[10px] text-neutral-500 block">Execution</span>
+                        <span class="text-cyan-400 font-mono font-semibold">Sub-ms ECN</span>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+
+                <!-- Risk Stats Ribbon -->
+                <div class="grid grid-cols-4 gap-2 pt-3 mt-3 border-t border-neutral-800/50 text-[11px] font-mono">
+                  <div>
+                    <span class="text-neutral-500 block text-[10px]">Hard Max DD</span>
+                    <span class="text-emerald-400 font-bold">20.0% Limit</span>
+                  </div>
+                  <div>
+                    <span class="text-neutral-500 block text-[10px]">Sharpe Ratio</span>
+                    <span class="text-neutral-200 font-bold">2.95</span>
+                  </div>
+                  <div>
+                    <span class="text-neutral-500 block text-[10px]">Weekly Alpha</span>
+                    <span class="text-emerald-400 font-bold">+$6,000</span>
+                  </div>
+                  <div>
+                    <span class="text-neutral-500 block text-[10px]">Account Equity</span>
+                    <span class="text-white font-bold">$20,000</span>
+                  </div>
+                </div>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- Window 2: Overlapping Bottom-Left Prompt Window -->
+      <div class="glow-card absolute -bottom-10 -left-6 w-80 rounded-2xl overflow-hidden shadow-2xl z-20 hidden md:block">
+        <div class="h-8 px-3 bg-neutral-950 border-b border-neutral-800 flex items-center justify-between text-[11px] font-mono text-neutral-400">
+          <div class="flex items-center gap-1.5">
+            <span class="w-2.5 h-2.5 rounded-full bg-[#ff5f56]"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-[#ffbd2e]"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-[#27c93f]"></span>
+          </div>
+          <span>farhan.ai • XAU/USD</span>
+          <div></div>
+        </div>
+        <div class="p-4 bg-[#0d0d10] space-y-3">
+          <div class="text-right">
+            <span class="inline-block px-3 py-1.5 rounded-xl bg-neutral-900 border border-neutral-800 text-xs text-neutral-200">
+              How did Paradox EA perform on Gold last week?
+            </span>
+          </div>
+          <div class="space-y-1.5 font-mono text-[11px] text-neutral-400 pt-2 border-t border-neutral-800/80">
+            <div class="text-neutral-300 font-semibold">✓ Work complete in 1s</div>
+            <div class="text-neutral-400 pl-2 space-y-1">
+              <div>✓ Ingested XAU/USD Orders</div>
+              <div class="text-emerald-400 font-bold">✓ Made: +$6,000.00 Last Week</div>
+              <div class="text-cyan-400">✓ Max DD Kept Under 20%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Window 3: Overlapping Right Mobile / App Window -->
+      <div class="glow-card absolute -bottom-8 -right-6 w-72 rounded-2xl overflow-hidden shadow-2xl z-20 hidden lg:block">
+        <div class="h-8 px-3 bg-neutral-950 border-b border-neutral-800 flex items-center justify-between text-[11px] font-mono text-neutral-400">
+          <div class="flex items-center gap-1.5">
+            <span class="w-2.5 h-2.5 rounded-full bg-[#ff5f56]"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-[#ffbd2e]"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-[#27c93f]"></span>
+          </div>
+          <span>paradox-app</span>
+          <div></div>
+        </div>
+        <div class="p-4 bg-[#0d0d10] space-y-3">
+          <div class="text-right">
+            <span class="inline-block px-3 py-1.5 rounded-xl bg-neutral-900 border border-neutral-800 text-xs text-neutral-200">
+              How's my $20K account today?
+            </span>
+          </div>
+          <div class="font-mono text-[11px] text-neutral-400 space-y-1 pt-1">
+            <div class="text-neutral-300 font-semibold">✓ 2s</div>
+            <div class="pl-2 space-y-0.5 text-neutral-400">
+              <div>✓ Asset: XAU/USD (Gold)</div>
+              <div>✓ Drawdown: 4.8% (&lt; 20% Limit)</div>
+              <div>✓ Target: 60%–70% / Mo</div>
+            </div>
+          </div>
+          <div class="p-3 rounded-xl bg-neutral-950 border border-neutral-800/80 font-mono text-xs">
+            <div class="flex justify-between items-center text-neutral-400">
+              <span>Account Balance:</span>
+              <span class="text-white font-bold text-sm">$20,000.00</span>
+            </div>
+            <div class="mt-2 flex justify-between">
+              <span class="text-neutral-500">Last Week Profit:</span>
+              <span class="text-emerald-400 font-bold">+$6,000.00</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-neutral-500">Monthly Return:</span>
+              <span class="text-cyan-400 font-bold">60% – 70%</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-neutral-500">Max DD Guard:</span>
+              <span class="text-amber-400 font-bold">20% Capped</span>
+            </div>
+            <button class="w-full mt-3 py-1.5 rounded-lg bg-neutral-900 hover:bg-neutral-800 text-white text-[11px] font-medium border border-neutral-800 transition-colors">
+              XAU/USD Live Positions
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ==================== TRUSTED BY MARQUEE ==================== -->
+    <div class="mt-24 pt-12 border-t border-neutral-900">
+      <p class="text-center font-mono text-xs uppercase tracking-widest text-neutral-500 mb-8">
+        Trusted by
+      </p>
+
+      <div class="overflow-hidden relative w-full mask-gradient">
+        <div class="partner-track flex items-center gap-16 text-neutral-400 font-bold text-sm sm:text-base">
+          
+          <!-- Logos Item Set -->
+          <div class="flex items-center gap-2 tracking-tight opacity-70 hover:opacity-100 transition-opacity">
+            <span class="text-indigo-400 text-lg">⚡</span> Hyperliquid
+          </div>
+          <div class="flex items-center gap-2 tracking-tight opacity-70 hover:opacity-100 transition-opacity">
+            <span class="text-cyan-400 text-lg">✦</span> Lighter
+          </div>
+          <div class="flex items-center gap-2 tracking-tight opacity-70 hover:opacity-100 transition-opacity">
+            <span class="text-violet-400 text-lg">◆</span> Kite
+          </div>
+          <div class="flex items-center gap-2 tracking-tight opacity-70 hover:opacity-100 transition-opacity">
+            <span class="text-emerald-400 text-lg">●</span> imToken
+          </div>
+          <div class="flex items-center gap-2 tracking-tight opacity-70 hover:opacity-100 transition-opacity">
+            <span class="text-blue-400 text-lg">○</span> CIRCLE
+          </div>
+          <div class="flex items-center gap-2 tracking-tight opacity-70 hover:opacity-100 transition-opacity">
+            <span class="text-neutral-300 text-lg">✕</span> ripple
+          </div>
+
+          <!-- Duplicate Set for Seamless Loop -->
+          <div class="flex items-center gap-2 tracking-tight opacity-70 hover:opacity-100 transition-opacity">
+            <span class="text-indigo-400 text-lg">⚡</span> Hyperliquid
+          </div>
+          <div class="flex items-center gap-2 tracking-tight opacity-70 hover:opacity-100 transition-opacity">
+            <span class="text-cyan-400 text-lg">✦</span> Lighter
+          </div>
+          <div class="flex items-center gap-2 tracking-tight opacity-70 hover:opacity-100 transition-opacity">
+            <span class="text-violet-400 text-lg">◆</span> Kite
+          </div>
+          <div class="flex items-center gap-2 tracking-tight opacity-70 hover:opacity-100 transition-opacity">
+            <span class="text-emerald-400 text-lg">●</span> imToken
+          </div>
+          <div class="flex items-center gap-2 tracking-tight opacity-70 hover:opacity-100 transition-opacity">
+            <span class="text-blue-400 text-lg">○</span> CIRCLE
+          </div>
+          <div class="flex items-center gap-2 tracking-tight opacity-70 hover:opacity-100 transition-opacity">
+            <span class="text-neutral-300 text-lg">✕</span> ripple
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ==================== NEW SECTION: YOUR NEW TRADING DESK (EXACT SCREENSHOT) ==================== -->
+  <section id="trading-desk" class="relative z-20 py-24 bg-white text-neutral-900 border-t border-neutral-200">
+    <div class="max-w-[1240px] mx-auto px-6">
+      
+      <!-- Section Header -->
+      <div class="mb-14 text-left">
+        <h2 class="font-serif text-4xl sm:text-5xl lg:text-[56px] font-normal tracking-tight text-neutral-950 leading-[1.1]">
+          Your New Trading Desk
+        </h2>
+        <p class="mt-3 text-sm sm:text-base text-neutral-500 font-normal">
+          Trade like a pro. With a quant team in your pocket.
+        </p>
+      </div>
+
+      <!-- 2x2 Quadrant Grid Container -->
+      <div class="rounded-3xl border border-neutral-200 bg-white overflow-hidden shadow-sm grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-neutral-200">
+        
+        <!-- ================= QUADRANT 1: AGENTIC TRADING ================= -->
+        <div class="p-8 sm:p-10 flex flex-col justify-between border-b border-neutral-200 min-h-[380px]">
+          <div>
+            <h3 class="text-xl font-bold text-neutral-900 tracking-tight">Agentic Trading</h3>
+            <p class="text-xs sm:text-[13px] text-neutral-500 mt-1">Set it, forget it. Paradox EA trades XAU/USD while you sleep.</p>
+          </div>
+
+          <!-- Inside Modal Card -->
+          <div class="my-6 max-w-sm mx-auto w-full rounded-2xl border border-neutral-200/90 bg-white p-5 shadow-xl shadow-neutral-200/50 space-y-4">
+            <!-- Analyzing indicator -->
+            <div class="text-center">
+              <span class="text-xs font-medium text-[#ff3366] tracking-wide inline-flex items-center gap-1.5 animate-pulse">
+                Paradox EA is active on XAU/USD
+              </span>
+            </div>
+
+            <!-- 2x2 Grid -->
+            <div class="grid grid-cols-2 gap-3 pt-1 border-t border-neutral-100 text-left">
+              <div class="space-y-0.5">
+                <span class="text-[10px] text-neutral-400 font-mono block">Account Equity</span>
+                <span class="text-sm font-bold text-neutral-900 font-mono">$20,000.00</span>
+              </div>
+              <div class="space-y-0.5">
+                <span class="text-[10px] text-neutral-400 font-mono block">Last Week Profit</span>
+                <span class="text-sm font-bold text-emerald-600 font-mono">+$6,000.00</span>
+              </div>
+              <div class="space-y-0.5 pt-2">
+                <span class="text-[10px] text-neutral-400 font-mono block">Trading Scope</span>
+                <div class="flex items-center gap-1.5 text-xs font-bold text-neutral-800">
+                  <span class="w-4 h-4 rounded-full bg-amber-500 text-white flex items-center justify-center text-[10px]">🥇</span>
+                  <span>XAU/USD (Gold)</span>
+                </div>
+              </div>
+              <div class="space-y-0.5 pt-2">
+                <span class="text-[10px] text-neutral-400 font-mono block">Monthly Target / DD</span>
+                <span class="text-xs font-semibold text-neutral-800">60%–70% (20% Max DD)</span>
+              </div>
+            </div>
+
+            <!-- Start Button -->
+            <button class="w-full py-2.5 rounded-lg bg-[#00c076] hover:bg-[#00ad6a] text-white font-bold text-xs tracking-wide transition-colors shadow-sm">
+              Start Paradox EA
+            </button>
+          </div>
+          <div></div>
+        </div>
+
+        <!-- ================= QUADRANT 2: ASK ANYTHING ================= -->
+        <div class="p-8 sm:p-10 flex flex-col justify-between border-b border-neutral-200 min-h-[380px]">
+          <div>
+            <h3 class="text-xl font-bold text-neutral-900 tracking-tight">Ask Anything</h3>
+            <p class="text-xs sm:text-[13px] text-neutral-500 mt-1">Your favorite assets, deep-dived in seconds.</p>
+          </div>
+
+          <!-- Conversational Prompt Component -->
+          <div class="my-6 max-w-sm mx-auto w-full space-y-4">
+            
+            <!-- User Bubble (Right) -->
+            <div class="flex justify-end">
+              <div class="px-4 py-2.5 rounded-2xl rounded-tr-sm bg-neutral-100 text-neutral-800 text-xs font-medium shadow-sm">
+                How did Paradox EA make $6,000 on Gold last week?
+              </div>
+            </div>
+
+            <!-- Bot Status (Left) -->
+            <div class="flex items-center gap-1 text-xs font-medium text-[#ff3366] italic pl-2">
+              <span>Farhan is analyzing XAU/USD orderflow</span>
+              <span class="animate-bounce">.</span>
+              <span class="animate-bounce delay-100">.</span>
+              <span class="animate-bounce delay-200">.</span>
+            </div>
+
+            <!-- Input Bar -->
+            <div class="rounded-full border border-neutral-200 bg-white px-4 py-2.5 flex items-center justify-between shadow-sm">
+              <span class="text-xs text-neutral-400 select-none">Ask about Paradox EA, XAU/USD, or risk...</span>
+              <button class="w-6 h-6 rounded-full bg-black text-white flex items-center justify-center text-xs font-bold hover:scale-105 transition-transform">
+                ↑
+              </button>
+            </div>
+
+          </div>
+          <div></div>
+        </div>
+
+        <!-- ================= QUADRANT 3: WORKFLOW ================= -->
+        <div class="p-8 sm:p-10 flex flex-col justify-between min-h-[380px]">
+          <div>
+            <h3 class="text-xl font-bold text-neutral-900 tracking-tight">Workflow</h3>
+            <p class="text-xs sm:text-[13px] text-neutral-500 mt-1">Build 24/7 automated trading workflows without code</p>
+          </div>
+
+          <!-- Interactive Node Pipeline -->
+          <div class="my-10 max-w-sm mx-auto w-full">
+            <div class="relative py-6 flex items-center justify-center">
+              <!-- Connector line -->
+              <div class="absolute inset-x-4 h-[2px] bg-neutral-200"></div>
+
+              <!-- Animated Avatar Slider Node on Connector Wire -->
+              <div class="relative z-10 flex items-center justify-between w-full px-12">
+                <div class="w-10 h-10 rounded-full border-2 border-white shadow-xl overflow-hidden bg-neutral-900 ring-4 ring-neutral-100">
+                  <img src="assets/farhan.jpg" alt="Farhan" class="w-full h-full object-cover object-top">
+                </div>
+
+                <!-- Target Trigger Node Dot (Pink) -->
+                <div class="w-3.5 h-3.5 rounded-full bg-[#ff3366] ring-4 ring-pink-100 shadow-md"></div>
+              </div>
+            </div>
+          </div>
+          <div></div>
+        </div>
+
+        <!-- ================= QUADRANT 4: VIBE TRADING ================= -->
+        <div class="p-8 sm:p-10 flex flex-col justify-between min-h-[380px]">
+          <div>
+            <h3 class="text-xl font-bold text-neutral-900 tracking-tight">Vibe Trading</h3>
+            <p class="text-xs sm:text-[13px] text-neutral-500 mt-1">One sentence, one quant strategy. For the rest of us.</p>
+          </div>
+
+          <!-- Strategy Prompt & Area Backtest Chart -->
+          <div class="my-6 max-w-sm mx-auto w-full space-y-3">
+            
+            <!-- Prompt bubble -->
+            <div class="px-4 py-2 rounded-xl bg-neutral-50 border border-neutral-200 text-xs text-neutral-700 font-medium inline-block w-full">
+              Run Paradox EA on XAU/USD: Target 60%–70% monthly return, max 20% DD.
+            </div>
+
+            <!-- Backtest Trend Alpha Card with SVG Chart -->
+            <div class="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm space-y-2">
+              <div class="flex justify-between items-center">
+                <span class="text-xs font-semibold text-neutral-800 block">XAU/USD Trend Alpha (+$6,000 Last Week)</span>
+                <span class="text-[10px] font-mono text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">60%–70% / Mo</span>
+              </div>
+              
+              <!-- SVG Area Chart -->
+              <svg viewBox="0 0 320 80" class="w-full h-20 overflow-visible">
+                <defs>
+                  <linearGradient id="chartGreen" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#10b981" stop-opacity="0.35"/>
+                    <stop offset="100%" stop-color="#10b981" stop-opacity="0.0"/>
+                  </linearGradient>
+                </defs>
+                <!-- Area -->
+                <path d="M 0 65 Q 25 60, 50 62 T 100 48 T 150 52 T 200 35 T 250 30 T 300 15 T 320 10 L 320 80 L 0 80 Z" fill="url(#chartGreen)" />
+                <!-- Line -->
+                <path d="M 0 65 Q 25 60, 50 62 T 100 48 T 150 52 T 200 35 T 250 30 T 300 15 T 320 10" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" />
+              </svg>
+            </div>
+
+          </div>
+          <div></div>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ==================== FOOTER ==================== -->
+  <footer class="py-12 bg-neutral-950 border-t border-neutral-800 relative z-20 text-xs font-mono text-neutral-500">
+    <div class="max-w-[1240px] mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-6">
+      <div class="flex items-center gap-2">
+        <span class="font-bold text-white text-sm">FARHAN</span>
+        <span>• Systematic Algo Trading Bots</span>
+      </div>
+      <div class="flex items-center gap-6">
+        <a href="#" class="hover:text-white transition-colors">Product</a>
+        <a href="#" class="hover:text-white transition-colors">Resources</a>
+        <a href="#" class="hover:text-white transition-colors">Pricing</a>
+      </div>
+      <div>© 2026 Farhan. All rights reserved.</div>
+    </div>
+  </footer>
+
+  <!-- ==================== SCRIPT: CURSOR SPOTLIGHT & STREAM LOGS ==================== -->
+  <script>
+    // 1. Mouse Spotlight Tracker
+    window.addEventListener('mousemove', (e) => {
+      document.documentElement.style.setProperty('--mouse-x', `${e.clientX}px`);
+      document.documentElement.style.setProperty('--mouse-y', `${e.clientY}px`);
+    });
+
+    // 2. Card Specific Spotlight Coordinates
+    const cards = document.querySelectorAll('.glow-card');
+    cards.forEach((card) => {
+      card.addEventListener('mousemove', (e) => {
+        const rect = card.getBoundingClientRect();
+        card.style.setProperty('--card-x', `${e.clientX - rect.left}px`);
+        card.style.setProperty('--card-y', `${e.clientY - rect.top}px`);
+      });
+    });
+
+    // 3. Generate Dense Monospace Running Log Rows in Background (Algo, Risk, Fund Mgmt, Forex Quotes)
+    const logPhrases = [
+      // Algo Trading & Quantitative Execution
+      "IN GOD WE TRUST, ALL OTHERS MUST BRING DATA — JIM SIMONS",
+      "MATHEMATICAL PRECISION OVERRIDES HUMAN EMOTION",
+      "SUB-MILLISECOND EXECUTION ELIMINATES SLIPPAGE",
+      "STATISTICAL ARBITRAGE HARVESTS STRUCTURAL ALPHA",
+      "BACKTESTED ON 10 YEARS OF TICK-LEVEL ORDERBOOK DATA",
+      "MARKET INEFFICIENCIES ARE TRANSIENT • LATENCY IS KING",
+      "SYSTEMATIC DISCIPLINE OVERRULES HUMAN DISCRETION",
+      "ALGORITHMIC EXECUTION: 0-EMOTION • 100% LOGIC",
+
+      // Risk Management & Capital Preservation
+      "RISK CONTROL IS THE ENTIRE GAME — PAUL TUDOR JONES",
+      "RULE #1: NEVER LOSE MONEY • RULE #2: NEVER FORGET RULE #1",
+      "CAPITAL PRESERVATION IS THE FIRST PRINCIPLE OF SURVIVAL",
+      "HARD STOP-LOSS LOCKED AT 1.5% MAX DAILY DRAWDOWN",
+      "POSITION SIZING DICTATES PORTFOLIO LONGEVITY",
+      "AMATEURS FOCUS ON WIN RATE • PROFESSIONALS FOCUS ON DRAWDOWN",
+      "ASYMMETRIC RISK-REWARD: CAPPED DOWNSIDE, UNBOUNDED UPSIDE",
+      "MEASURE VALUE AT RISK (VaR) BEFORE SEEKING RETURN",
+      "SHARPE RATIO > 3.0: SYSTEMATIC RISK PARITY",
+
+      // Fund Management & Portfolio Construction
+      "MANAGING CAPITAL WITH INSTITUTIONAL INTEGRITY",
+      "NON-CUSTODIAL GOVERNANCE: ZERO COUNTERPARTY RISK",
+      "MARKET-NEUTRAL PORTFOLIOS WEATHER ANY CYCLE",
+      "UNCORRELATED RETURNS ARE THE HOLY GRAIL OF ASSET ALLOCATION",
+      "DYNAMIC FACTOR REBALANCING ACROSS MULTI-ASSET VAULTS",
+      "ALPHA IS EARNED THROUGH SPEED, MATH, AND RISK DISCIPLINE",
+      "ZERO CORRELATION TO BROADER MARKET DRIFT",
+
+      // Forex & Cross-Venue Arbitrage
+      "EXPLOITING CROSS-CURRENCY LIQUIDITY IMBALANCES",
+      "LONDON-NEW YORK OVERLAP LIQUIDITY CAPTURE",
+      "DELTA-NEUTRAL FOREX BASIS SPREADS",
+      "TRIANGULAR ARBITRAGE: EUR/USD • GBP/USD • USD/JPY",
+      "REAL-TIME SPREAD COMPRESSION ACROSS ECN ORDERBOOKS",
+      "XAU/USD GOLD SCALPING ON INSTITUTIONAL DEPTH",
+      "EQUINIX NY4 & LD4 ULTRA LOW-LATENCY CROSS-CONNECTS"
+    ];
+
+    const streamContainer = document.getElementById('bgTextStream');
+    const highlightContainer = document.getElementById('bgTextStreamHighlight');
+    if (streamContainer) {
+      for (let r = 0; r < 28; r++) {
+        const rowDiv = document.createElement('div');
+        rowDiv.className = 'bg-text-row';
+        
+        // Shuffle phrases
+        let text = "";
+        for (let i = 0; i < 24; i++) {
+          const phrase = logPhrases[(i + r * 3) % logPhrases.length];
+          text += `✓ ${phrase}   •   `;
+        }
+        rowDiv.innerText = text + text; // repeat for loop
+        streamContainer.appendChild(rowDiv);
+
+        if (highlightContainer) {
+          const highDiv = document.createElement('div');
+          highDiv.className = 'bg-text-row-highlight';
+          highDiv.innerText = text + text;
+          highlightContainer.appendChild(highDiv);
+        }
+      }
+    }
+  </script>
+
+</body>
+</html>
