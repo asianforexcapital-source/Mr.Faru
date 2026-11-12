@@ -7,7 +7,7 @@ High-performance quantitative trading website for **Farhan** featuring **Paradox
 - **Target Monthly Returns:** 60% – 70% / Mo
 - **Risk Control:** 20% Hard Max Drawdown Guardrail
 - **Execution:** Zero-emotion systematic algorithmic trading
-- **Direct Connect:** Instant WhatsApp integration for investor onboarding
+- **Direct Connect:** Instant Telegram Channel integration for investor updates & onboarding
 
 ## Deploying on Vercel
 1. Import this repository into [Vercel](https://vercel.com).
